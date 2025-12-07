@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+export default function handler(req, res) {
   const { prompt } = req.query;
 
   if (!prompt || prompt.trim() === '') {
@@ -34,9 +34,9 @@ export default async function handler(req, res) {
 </html>`);
   }
 
-  // Use Segmind API (free, no auth required)
-  const seed = Math.floor(Math.random() * 999999);
-  const imageUrl = `https://segmind-sd1-5.hf.space/run/predict?data=[%22${encodeURIComponent(prompt)}%22,%22%22,7,20,512,512,${seed}]`;
+  const seed = Math.floor(Math.random() * 900000) + 100000;
+  const encodedPrompt = encodeURIComponent(prompt);
+  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&seed=${seed}&nologo=true&model=flux`;
 
   res.setHeader('Content-Type', 'text/html');
   res.status(200).send(`<!DOCTYPE html>
@@ -53,56 +53,77 @@ export default async function handler(req, res) {
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      flex-direction: column;
-      font-family: Arial, sans-serif;
     }
-    #status {
+    .loader {
       color: white;
+      font-family: Arial, sans-serif;
       font-size: 18px;
-      margin-bottom: 20px;
+      text-align: center;
+    }
+    .spinner {
+      border: 4px solid #222;
+      border-top: 4px solid #fff;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
     img {
       max-width: 100%;
-      max-height: 80vh;
+      max-height: 100vh;
       object-fit: contain;
       display: none;
     }
-    img.show { display: block; }
+    img.loaded { display: block; }
+    .error {
+      color: #ff6b6b;
+      text-align: center;
+      font-family: Arial, sans-serif;
+    }
+    .error a {
+      color: skyblue;
+      text-decoration: none;
+    }
+    .error a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
-  <div id="status">Generating your image...</div>
-  <img id="result" alt="Generated Image">
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <div>Generating your image...</div>
+    <div style="font-size: 14px; color: #888; margin-top: 10px;">This may take 10-30 seconds</div>
+  </div>
+  <img id="img" alt="Generated AI Image">
   
   <script>
-    const status = document.getElementById('status');
-    const img = document.getElementById('result');
-    const prompt = "${prompt.replace(/"/g, '\\"')}";
+    const img = document.getElementById('img');
+    const loader = document.getElementById('loader');
+    const imageUrl = "${imageUrl}";
     
-    async function generate() {
-      try {
-        status.textContent = 'Creating your image...';
-        
-        const response = await fetch('https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inputs: prompt })
-        });
-        
-        if (!response.ok) throw new Error('Generation failed');
-        
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        
-        img.src = url;
-        img.classList.add('show');
-        status.style.display = 'none';
-      } catch (error) {
-        status.innerHTML = 'Generation failed. <a href="" style="color: skyblue;">Try again</a>';
-      }
-    }
+    let timeout = setTimeout(() => {
+      loader.innerHTML = '<div class="error">Taking longer than expected...<br><a href="">Refresh to try again</a></div>';
+    }, 30000);
     
-    generate();
+    img.onload = function() {
+      clearTimeout(timeout);
+      loader.style.display = 'none';
+      img.classList.add('loaded');
+    };
+    
+    img.onerror = function() {
+      clearTimeout(timeout);
+      loader.innerHTML = '<div class="error">Failed to generate image<br><a href="">Refresh to try again</a></div>';
+    };
+    
+    img.src = imageUrl;
+    
     document.addEventListener('contextmenu', e => e.preventDefault());
   </script>
 </body>
