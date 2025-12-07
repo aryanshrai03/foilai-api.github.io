@@ -1,6 +1,6 @@
 <?php
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+// Vercel serverless function
+header('Content-Type: text/html; charset=UTF-8');
 
 // --- Function to show error page ---
 function showError() {
@@ -9,7 +9,7 @@ function showError() {
     <head><title>FoilAI - Free Image API</title></head>
     <body style='background:black;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;margin:0;'>
         <h2 style='color:white;font-family:Arial;'>FoilAI - Free Image API</h2>
-        <h3 style='color:white;font-family:Arial;'>Invalid URL. Use https://foilai.in/api/generate.php?prompt=your%20text</h3>
+        <h3 style='color:white;font-family:Arial;'>Invalid URL. Use /api/generate.php?prompt=your%20text</h3>
         <p style='color:white;font-family:Arial;'>Example: <a href=\"?prompt=cloudy%20mountain%20photo\" style='color:skyblue;'>cloudy mountain photo</a></p>
     </body></html>";
     exit;
@@ -27,7 +27,8 @@ $seed = rand(100000, 999999);
 $imageUrl = "https://image.pollinations.ai/prompt/" . urlencode($prompt) . "?width=1024&height=1024&seed=$seed&nologo=true";
 
 // --- Display the image ---
-echo "<!DOCTYPE html>
+?>
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset='UTF-8'>
@@ -41,7 +42,6 @@ echo "<!DOCTYPE html>
     </script>
 </head>
 <body>
-    <img src='$imageUrl' alt='Generated AI Image' />
+    <img src='<?php echo htmlspecialchars($imageUrl); ?>' alt='Generated AI Image' />
 </body>
-</html>";
-?>
+</html>
