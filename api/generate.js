@@ -37,31 +37,43 @@ export default async function handler(req, res) {
   try {
     const API_KEY = "754f3e01226bc754629ae84f33e7cd3440744e921acf9b3a56b03014d1401b68";
     
-    // Generate image using ImageRouter
-    const response = await fetch("https://imagerouter.promptlayer.com/image/generations", {
+    // Generate image using ImageRouter with Bria model
+    const response = await fetch("https://api.imagerouter.io/v1/generations", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-KEY": API_KEY
+        "Authorization": `Bearer ${API_KEY}`
       },
       body: JSON.stringify({
         prompt: prompt,
-        model: "black-forest-labs/FLUX.1-schnell-Free",
-        n: 1
+        model: "bria/bria-3.2:free",
+        width: 1024,
+        height: 1024
       })
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error:', errorText);
       throw new Error('Generation failed');
     }
 
     const data = await response.json();
     
     // Get the image URL from response
-    const imageUrl = data.data[0].url;
+    const imageUrl = data.output?.[0] || data.data?.[0]?.url || data.url;
+
+    if (!imageUrl) {
+      throw new Error('No image URL in response');
+    }
 
     // Fetch the image and convert to base64
     const imageResponse = await fetch(imageUrl);
+    
+    if (!imageResponse.ok) {
+      throw new Error('Failed to fetch generated image');
+    }
+    
     const imageBuffer = await imageResponse.arrayBuffer();
     const base64Image = Buffer.from(imageBuffer).toString('base64');
 
@@ -124,6 +136,7 @@ export default async function handler(req, res) {
 <body>
   <div>
     <h2>Failed to generate image</h2>
+    <p>Error: ${error.message}</p>
     <p><a href="?">Try again</a></p>
   </div>
 </body>
