@@ -19,8 +19,8 @@ export default async function handler(req, res) {
   const seed = Math.floor(Math.random() * 900000) + 100000;
   const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&seed=${seed}&nologo=true`;
 
-  // Return HTML with image
-  res.setHeader('Content-Type', 'text/html');
+  // Return HTML with image and loading state
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.status(200).send(`
     <!DOCTYPE html>
     <html>
@@ -28,15 +28,49 @@ export default async function handler(req, res) {
         <meta charset='UTF-8'>
         <title>FoilAI - Generated Image</title>
         <style>
-            body { margin:0; background:black; display:flex; justify-content:center; align-items:center; height:100vh; }
-            img { max-width:100%; max-height:100vh; object-fit:contain; }
+            body { 
+                margin:0; 
+                background:black; 
+                display:flex; 
+                justify-content:center; 
+                align-items:center; 
+                height:100vh; 
+                overflow:hidden;
+            }
+            #loader {
+                color: white;
+                font-family: Arial;
+                font-size: 20px;
+            }
+            img { 
+                max-width:100%; 
+                max-height:100vh; 
+                object-fit:contain;
+                display:none;
+            }
+            img.loaded {
+                display:block;
+            }
         </style>
-        <script>
-            document.addEventListener('contextmenu', e => e.preventDefault());
-        </script>
     </head>
     <body>
-        <img src='${imageUrl}' alt='Generated AI Image' />
+        <div id="loader">Generating image...</div>
+        <img id="mainImage" src="${imageUrl}" alt="Generated AI Image" />
+        <script>
+            document.addEventListener('contextmenu', e => e.preventDefault());
+            
+            const img = document.getElementById('mainImage');
+            const loader = document.getElementById('loader');
+            
+            img.onload = function() {
+                loader.style.display = 'none';
+                img.classList.add('loaded');
+            };
+            
+            img.onerror = function() {
+                loader.textContent = 'Failed to load image. Please try again.';
+            };
+        </script>
     </body>
     </html>
   `);
