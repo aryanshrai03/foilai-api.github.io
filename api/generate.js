@@ -35,36 +35,37 @@ export default async function handler(req, res) {
   }
 
   try {
-    const API_KEY = "0000000000"; // Anonymous API key
+    const API_KEY = "754f3e01226bc754629ae84f33e7cd3440744e921acf9b3a56b03014d1401b68";
     
-    // Step 1: Submit generation request
-    const generateResponse = await fetch("https://stablehorde.net/api/v2/generate/async", {
+    // Generate image using ImageRouter
+    const response = await fetch("https://imagerouter.promptlayer.com/image/generations", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": API_KEY
+        "X-API-KEY": API_KEY
       },
       body: JSON.stringify({
         prompt: prompt,
-        params: {
-          steps: 20,
-          width: 512,
-          height: 512,
-          sampler_name: "k_euler"
-        },
-        nsfw: false,
-        trusted_workers: false,
-        models: ["stable_diffusion"]
+        model: "black-forest-labs/FLUX.1-schnell-Free",
+        n: 1
       })
     });
 
-    if (!generateResponse.ok) {
-      throw new Error('Failed to submit generation request');
+    if (!response.ok) {
+      throw new Error('Generation failed');
     }
 
-    const { id } = await generateResponse.json();
+    const data = await response.json();
+    
+    // Get the image URL from response
+    const imageUrl = data.data[0].url;
 
-    // Return HTML that polls for the result
+    // Fetch the image and convert to base64
+    const imageResponse = await fetch(imageUrl);
+    const imageBuffer = await imageResponse.arrayBuffer();
+    const base64Image = Buffer.from(imageBuffer).toString('base64');
+
+    // Return HTML with embedded image
     res.setHeader('Content-Type', 'text/html');
     res.status(200).send(`<!DOCTYPE html>
 <html>
@@ -80,96 +81,17 @@ export default async function handler(req, res) {
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      flex-direction: column;
-    }
-    .loader {
-      color: white;
-      font-family: Arial, sans-serif;
-      font-size: 18px;
-      text-align: center;
-    }
-    .spinner {
-      border: 4px solid #222;
-      border-top: 4px solid #fff;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 20px;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    #status {
-      margin-top: 10px;
-      font-size: 14px;
-      color: #888;
     }
     img {
       max-width: 100%;
-      max-height: 80vh;
+      max-height: 100vh;
       object-fit: contain;
-      display: none;
-    }
-    img.show { display: block; }
-    .error {
-      color: #ff6b6b;
-      text-align: center;
-      font-family: Arial, sans-serif;
-    }
-    .error a {
-      color: skyblue;
-      text-decoration: none;
     }
   </style>
 </head>
 <body>
-  <div class="loader" id="loader">
-    <div class="spinner"></div>
-    <div>Generating your image...</div>
-    <div id="status">Initializing...</div>
-  </div>
-  <img id="result" alt="Generated Image">
-  
+  <img src="data:image/png;base64,${base64Image}" alt="Generated AI Image">
   <script>
-    const loader = document.getElementById('loader');
-    const status = document.getElementById('status');
-    const img = document.getElementById('result');
-    const requestId = "${id}";
-    
-    async function checkStatus() {
-      try {
-        const response = await fetch(\`https://stablehorde.net/api/v2/generate/check/\${requestId}\`);
-        const data = await response.json();
-        
-        if (data.done) {
-          // Get the final result
-          const resultResponse = await fetch(\`https://stablehorde.net/api/v2/generate/status/\${requestId}\`);
-          const result = await resultResponse.json();
-          
-          if (result.generations && result.generations.length > 0) {
-            img.src = result.generations[0].img;
-            img.classList.add('show');
-            loader.style.display = 'none';
-          } else {
-            throw new Error('No image generated');
-          }
-        } else {
-          // Update status
-          const queuePos = data.queue_position || 0;
-          const waitTime = data.wait_time || 0;
-          status.textContent = \`Queue position: \${queuePos} | Wait time: ~\${waitTime}s\`;
-          
-          // Check again in 2 seconds
-          setTimeout(checkStatus, 2000);
-        }
-      } catch (error) {
-        loader.innerHTML = '<div class="error">Generation failed<br><a href="">Try again</a></div>';
-      }
-    }
-    
-    checkStatus();
     document.addEventListener('contextmenu', e => e.preventDefault());
   </script>
 </body>
@@ -201,7 +123,7 @@ export default async function handler(req, res) {
 </head>
 <body>
   <div>
-    <h2>Failed to start generation</h2>
+    <h2>Failed to generate image</h2>
     <p><a href="?">Try again</a></p>
   </div>
 </body>
