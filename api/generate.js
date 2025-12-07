@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+export default function handler(req, res) {
   const { prompt } = req.query;
 
   if (!prompt || prompt.trim() === '') {
@@ -34,59 +34,15 @@ export default async function handler(req, res) {
 </html>`);
   }
 
-  try {
-    // Use Replicate's free SDXL model via their public API
-    const response = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        version: "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
-        input: {
-          prompt: prompt,
-          width: 1024,
-          height: 1024
-        }
-      })
-    });
+  const escapedPrompt = prompt.replace(/'/g, "\\'").replace(/"/g, '\\"');
 
-    const data = await response.json();
-    
-    // For Replicate, we need to poll for results
-    // Let's use a simpler approach - Hugging Face Spaces
-    
-    // Actually, let's use the SIMPLEST free option: Craiyon (formerly DALL-E mini)
-    const craiyonResponse = await fetch("https://api.craiyon.com/v3", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        prompt: prompt,
-        model: "art",
-        negative_prompt: "",
-        token: null,
-        version: "c",
-      })
-    });
-
-    if (!craiyonResponse.ok) {
-      throw new Error('Generation failed');
-    }
-
-    const craiyonData = await craiyonResponse.json();
-    
-    // Craiyon returns base64 images
-    const base64Image = craiyonData.images[0];
-
-    res.setHeader('Content-Type', 'text/html');
-    res.status(200).send(`<!DOCTYPE html>
+  res.setHeader('Content-Type', 'text/html');
+  res.status(200).send(`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FoilAI - Generated Image</title>
+  <title>FoilAI</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -95,53 +51,68 @@ export default async function handler(req, res) {
       justify-content: center;
       align-items: center;
       min-height: 100vh;
+      flex-direction: column;
+      color: white;
+      font-family: Arial;
+    }
+    .spinner {
+      border: 4px solid #222;
+      border-top: 4px solid #fff;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
     img {
-      max-width: 100%;
-      max-height: 100vh;
+      max-width: 90%;
+      max-height: 80vh;
       object-fit: contain;
+      display: none;
     }
+    img.show { display: block; }
+    #loader.hide { display: none; }
   </style>
 </head>
 <body>
-  <img src="data:image/png;base64,${base64Image}" alt="Generated AI Image">
+  <div id="loader">
+    <div class="spinner"></div>
+    <div>Generating your image...</div>
+  </div>
+  <img id="result" alt="Generated Image">
+  
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <script>
+    const prompt = "${escapedPrompt}";
+    const loader = document.getElementById('loader');
+    const img = document.getElementById('result');
+    
+    async function generate() {
+      try {
+        // Using pollinations.ai endpoint (it's actually still free for this use)
+        const seed = Math.floor(Math.random() * 1000000);
+        const url = \`https://image.pollinations.ai/prompt/\${encodeURIComponent(prompt)}?width=1024&height=1024&seed=\${seed}&nologo=true\`;
+        
+        img.src = url;
+        img.onload = () => {
+          loader.classList.add('hide');
+          img.classList.add('show');
+        };
+        img.onerror = () => {
+          loader.innerHTML = '<div style="color:#f66">Failed. <a href="" style="color:skyblue">Retry</a></div>';
+        };
+      } catch (err) {
+        loader.innerHTML = '<div style="color:#f66">Error. <a href="" style="color:skyblue">Retry</a></div>';
+      }
+    }
+    
+    generate();
     document.addEventListener('contextmenu', e => e.preventDefault());
   </script>
 </body>
 </html>`);
-
-  } catch (error) {
-    console.error('Error:', error);
-    res.setHeader('Content-Type', 'text/html');
-    res.status(500).send(`<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Error - FoilAI</title>
-  <style>
-    body {
-      margin: 0;
-      background: black;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      font-family: Arial, sans-serif;
-      color: white;
-      text-align: center;
-    }
-    a { color: skyblue; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-  </style>
-</head>
-<body>
-  <div>
-    <h2>Failed to generate image</h2>
-    <p>${error.message}</p>
-    <p><a href="?">Try again</a></p>
-  </div>
-</body>
-</html>`);
-  }
 }
